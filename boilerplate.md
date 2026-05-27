@@ -11,19 +11,15 @@ You are setting up a new project that follows **agentic engineering** practices,
   .editorconfig                  ← cross-IDE consistency
   .nvmrc                         ← pinned Node version
   .env.example                   ← env var template (.env is gitignored)
-  .claude/
-    settings.json                ← permission allowlist for routine ops
-    launch.json                  ← Cowork dev-server attach config
-    rules/                       ← short Markdown rule files Claude reads alongside CLAUDE.md
   docs/                          ← requirements / decisions / retros / constraints
   app/                           ← all Vite + React + TS code lives here
 ```
 
 **Hard precondition for "done":** `CLAUDE.md` exists at the *repo root* (NOT inside `app/`). If it's missing, the bootstrap is not complete — re-run Step 3.
 
-**Flow at a glance:** interview → scaffold `app/` + root `package.json` + `.claude/` + dotfiles + root `.gitignore` + chore commit → docs skeleton + README + docs commit → hello world spec-first inside `app/` + feat commit → dev server from root (Cowork auto-attaches via `.claude/launch.json`) → curl confirms 200 → open browser → retrospective → STOP.
+**Flow at a glance:** interview → scaffold `app/` + root `package.json` + dotfiles + root `.gitignore` + chore commit → docs skeleton + README + docs commit → hello world spec-first inside `app/` + feat commit → dev server from root → curl confirms 200 → open browser → retrospective → STOP.
 
-**File-creation discipline:** When this prompt shows a file path followed by code-block content (e.g. `**.claude/settings.json:**` followed by a ```json``` block), Claude MUST create that file at that path using its file-writing tools — do NOT print the content and wait for the user to create it. Diff snippets explicitly labeled "merge into existing file" are the only exception. If Claude Code prompts once for permission to write inside `.claude/`, approve it and continue through the remaining files without re-prompting. The same applies to the bash heredoc blocks in Step 2 — run them, don't display them.
+**File-creation discipline:** When this prompt shows a file path followed by code-block content, Claude MUST create that file using its file-writing tools — do NOT print the content and wait for the user to create it. Diff snippets explicitly labeled "merge into existing file" are the only exception. Bash heredoc blocks in Step 2 must be executed, not displayed.
 
 ## Step 1 — Interview me
 
@@ -36,7 +32,7 @@ Use `AskUserQuestion`. Do not proceed until you have answers. **Do not ask about
 
 Echo answers back for confirmation before continuing.
 
-## Step 2 — Scaffold `app/`, set up root pass-through, `.claude/`, dotfiles, git + chore commit
+## Step 2 — Scaffold `app/`, set up root pass-through, dotfiles, git + chore commit
 
 1. Create the repo root and enter it:
    ```bash
@@ -92,7 +88,6 @@ Echo answers back for confirmation before continuing.
 
    ```bash
    cd ..
-   mkdir -p .claude/rules
 
    cat > package.json <<'EOF'
    {
@@ -172,71 +167,7 @@ Echo answers back for confirmation before continuing.
    # Add variables here as the project grows.
    EOF
 
-   cat > .claude/settings.json <<'EOF'
-   {
-     "permissions": {
-       "allow": [
-         "Bash(npm run dev)",
-         "Bash(npm run build)",
-         "Bash(npm run preview)",
-         "Bash(npm run test:*)",
-         "Bash(npm run lint)",
-         "Bash(npm run format)",
-         "Bash(npm install:*)",
-         "Bash(git status)",
-         "Bash(git log:*)",
-         "Bash(git diff:*)",
-         "Bash(git add:*)",
-         "Bash(git commit:*)",
-         "Bash(ls:*)",
-         "Bash(cat:*)",
-         "Bash(curl -sS http://127.0.0.1:*)"
-       ]
-     }
-   }
-   EOF
-
-   cat > .claude/launch.json <<'EOF'
-   {
-     "version": "0.0.1",
-     "configurations": [
-       {
-         "name": "Vite dev server",
-         "runtimeExecutable": "npm",
-         "runtimeArgs": ["run", "dev"],
-         "port": 5173
-       },
-       {
-         "name": "Vite preview (built)",
-         "runtimeExecutable": "npm",
-         "runtimeArgs": ["run", "preview"],
-         "port": 4173
-       }
-     ]
-   }
-   EOF
-
-   cat > .claude/rules/typescript-strict.md <<'EOF'
-   # TypeScript strict mode is required
-
-   Do NOT disable `strict`, `noImplicitAny`, `strictNullChecks`, or `noUncheckedIndexedAccess` in any `tsconfig*.json`. If a strict-mode error is hard to fix, narrow the type or guard the value — don't loosen the config.
-   EOF
-
-   cat > .claude/rules/pure-modules.md <<'EOF'
-   # Logic in pure modules, rendering in components
-
-   Business logic lives in pure modules under `app/src/` and is specced via Vitest. React components only render — they consume pure modules but contain no branching/transform logic that isn't trivially obvious. If a render-time computation appears, extract it into a pure module and spec it before wiring it in.
-   EOF
-
-   cat > .claude/rules/spec-first.md <<'EOF'
-   # Spec first, code second
-
-   Every new module starts with a failing `*.spec.ts(x)` test. Show the red output, then write the minimum code to turn it green, then commit. No "I'll add the test after" — that defeats the discipline.
-   EOF
-
-   ls -la package.json .gitignore .editorconfig .nvmrc .env.example \
-     .claude/settings.json .claude/launch.json \
-     .claude/rules/typescript-strict.md .claude/rules/pure-modules.md .claude/rules/spec-first.md
+   ls -la package.json .gitignore .editorconfig .nvmrc .env.example
    ```
 
    The trailing `ls -la` is a verify check. If any of those paths is missing, a heredoc failed — rerun the block before moving on. After the block runs cleanly, also substitute the actual project name into `package.json` (replace `<project-name>` with the kebab-case name from Step 1).
@@ -245,7 +176,7 @@ Echo answers back for confirmation before continuing.
    ```bash
    git init
    git add -A
-   git commit -m "chore: scaffold app/ + root pass-through + .claude/ + dotfiles"
+   git commit -m "chore: scaffold app/ + root pass-through + dotfiles"
    ```
 
 ## Step 3 — Agentic docs skeleton + human-facing README + docs commit
@@ -274,18 +205,24 @@ Echo answers back for confirmation before continuing.
   - (c) "How to work in this repo" section embedding the Step 5 working agreement verbatim,
   - (d) linked TOC for every file under `docs/`,
   - (e) "Current state" section — initially: "hello world greeting rendered; no features specced",
-  - (f) **"Dev server"** section: from repo root, `npm run dev` → `http://127.0.0.1:5173/`. Cowork attaches automatically via `.claude/launch.json`.
+  - (f) **"Dev server"** section: from repo root, `npm run dev` → `http://127.0.0.1:<DEV_PORT>/` (port from `.dev-port`, defaults 5173).
   - (g) **"Common commands"** section — `npm run dev` / `build` / `preview` / `test` / `lint` / `format`, all from repo root,
-  - (h) **"Critical files"** — point at `app/vite.config.ts`, `app/vitest.config.ts`, `docs/constraints.md`, `.claude/launch.json`,
+  - (h) **"Critical files"** — point at `app/vite.config.ts`, `app/vitest.config.ts`, `docs/constraints.md`,
   - (i) "Self-improvement log" section linking every file under `docs/retrospectives/` (initially empty).
   - (j) **"Escalation rules"** — when to stop and ask the user rather than push through. Verbatim:
     > Stop and ask via AskUserQuestion when:
     > - The same test has failed 3 times with different fixes (you're guessing — get more context).
-    > - A request conflicts with `docs/constraints.md` or a `.claude/rules/*.md` file (surface it, don't silently comply).
+    > - A request conflicts with `docs/constraints.md` or a rule in the "Rules" section of `CLAUDE.md` (surface it, don't silently comply).
     > - A new runtime dependency is needed (ask + add an ADR before installing).
     > - `:5173` or `:4173` is taken (fix the conflict, do not let Vite drift to another port).
     > - This change would push `CLAUDE.md` past ~200 lines (route detail into a linked doc first).
     > - Acceptance criteria in a `docs/requirements/feature-*.md` are ambiguous or contradict each other.
+  - (k) **"Rules"** section — three non-negotiable invariants embedded directly so they load on every turn:
+    > **TypeScript strict:** Do NOT disable `strict`, `noImplicitAny`, `strictNullChecks`, or `noUncheckedIndexedAccess` in any `tsconfig*.json`. Narrow the type or guard the value — never loosen the config.
+    >
+    > **Pure modules:** Business logic lives in pure modules under `app/src/`. React components only render — no branching/transform logic. Extract any non-trivial computation into a pure module and spec it before wiring it in.
+    >
+    > **Spec first:** Every new module starts with a failing `*.spec.ts(x)` test. Show the red output, then write the minimum code to turn it green, then commit.
 - **`README.md`** (root, for humans, not Claude) — short and sharp:
   ```markdown
   # <project-name>
@@ -311,7 +248,7 @@ Echo answers back for confirmation before continuing.
   Spec-first, ADR-required for new patterns, retro after every feature. See [CLAUDE.md](./CLAUDE.md).
   ```
 - **`docs/requirements/overview.md`** — goal, user, success criteria. Plain prose.
-- **`docs/decisions/001-agent-structure.md`** — ADR explaining the **root-vs-`app/` split** plus the docs subfolders + `.claude/` directory choices. Format: Context, Decision, Consequences.
+- **`docs/decisions/001-agent-structure.md`** — ADR explaining the **root-vs-`app/` split** plus the docs subfolders. Format: Context, Decision, Consequences.
 - **`docs/constraints.md`** — "what NOT to do" list from Step 1 + baseline (no unscoped refactors, no new deps without an ADR, no code without a spec, no skipping the retro, **no governance files inside `app/`**, **no app code outside `app/`**, **no `eslint-plugin-react` until it supports ESLint 10**).
 
 Verify from repo root: `ls CLAUDE.md README.md docs/requirements/overview.md docs/decisions/001-agent-structure.md docs/constraints.md docs/retrospectives/.gitkeep` — all paths resolve.
@@ -398,9 +335,9 @@ The bootstrap treats hello-world as **Feature 001** to demonstrate the full spec
 > 5. Logic in pure modules, rendering in components. Specs target the logic. Add a DOM-testing layer (e.g. React Testing Library) only via an ADR when a real need appears.
 > 6. When in doubt, ask. Use AskUserQuestion rather than guessing requirements.
 > 7. Keep `CLAUDE.md`'s "Current state" section updated after every merged change.
-> 8. Dev server lives at `http://127.0.0.1:<DEV_PORT>/` where `DEV_PORT` is recorded in `.dev-port` (defaults to 5173, probed for a free port at bootstrap time; see Step 6). Always read the current port from `.dev-port` instead of hardcoding 5173. `strictPort: true` is set so Vite never silently drifts. Cowork attaches via `.claude/launch.json`, which is kept in sync with the chosen port.
+> 8. Dev server lives at `http://127.0.0.1:<DEV_PORT>/` where `DEV_PORT` is recorded in `.dev-port` (defaults to 5173, probed for a free port at bootstrap time; see Step 6). Always read the current port from `.dev-port` instead of hardcoding 5173. `strictPort: true` is set so Vite never silently drifts.
 > 9. **Retrospective after every feature.** Once a feature is green and committed, write `docs/retrospectives/NNN-<slug>.md` capturing what worked, what didn't, and concrete workflow changes. If the retro proposes a change, **edit `CLAUDE.md` (working agreement, constraints, or links) in the same session** — don't defer. Add a new ADR if the change is architectural. Then update the "Self-improvement log" section of `CLAUDE.md` to link the new retro. Commit as `chore(retro): NNN-<slug>`.
-> 10. **Layout discipline.** Governance files (`CLAUDE.md`, `README.md`, `docs/**`, `.claude/**`) live at the repo root and never inside `app/`. App code lives inside `app/` and never at the repo root. Root-level config (CI, dotfiles) is allowed; app code at root is not.
+> 10. **Layout discipline.** Governance files (`CLAUDE.md`, `README.md`, `docs/**`) live at the repo root and never inside `app/`. App code lives inside `app/` and never at the repo root. Root-level config (CI, dotfiles) is allowed; app code at root is not.
 > 11. **Conventional Commits.** Format: `<type>(<scope>): <subject>`. Types: `feat`, `fix`, `chore`, `docs`, `refactor`, `test`, `perf`, `build`, `ci`, `style`. Retros are committed as `chore(retro): NNN-<slug>`. ADR additions as `docs(adr): NNN-<slug>`.
 > 12. **CLAUDE.md ≤ ~200 lines.** It is a router, not an encyclopedia. If a retro update would push it past ~200 lines, move detail into a linked file under `docs/` and link from `CLAUDE.md` instead. Same applies to constraints.md — split into topical files once over ~150 lines.
 
@@ -425,7 +362,7 @@ Defaults are `:5173` (dev) and `:4173` (preview), but another running Vite proje
 
    if [ "$DEV_PORT" != "5173" ] || [ "$PREVIEW_PORT" != "4173" ]; then
      sed -i.bak "s/5173/$DEV_PORT/g; s/4173/$PREVIEW_PORT/g" \
-       .claude/launch.json CLAUDE.md README.md 2>/dev/null || true
+       CLAUDE.md README.md 2>/dev/null || true
      find . -maxdepth 3 -name '*.bak' -delete
      echo "Configs updated to $DEV_PORT / $PREVIEW_PORT."
    fi
@@ -434,7 +371,35 @@ Defaults are `:5173` (dev) and `:4173` (preview), but another running Vite proje
    echo "$PREVIEW_PORT" > .preview-port
    ```
 
-2. **Create `app/vite.config.ts`** with the probed ports — substitute `<DEV_PORT>` / `<PREVIEW_PORT>` with the values printed in step 1 (read from `.dev-port` / `.preview-port` if you've lost them):
+2. **Create `.claude/launch.json`** with the probed ports so Cowork's preview panel attaches to the correct port. Claude Code's self-modification classifier blocks writes to `.claude/` paths — run this in **your terminal** (not via Claude):
+   ```bash
+   DEV_PORT=$(cat .dev-port)
+   PREVIEW_PORT=$(cat .preview-port)
+   mkdir -p .claude
+   cat > .claude/launch.json <<EOF
+   {
+     "version": "0.0.1",
+     "configurations": [
+       {
+         "name": "Vite dev server",
+         "runtimeExecutable": "npm",
+         "runtimeArgs": ["run", "dev"],
+         "port": $DEV_PORT
+       },
+       {
+         "name": "Vite preview (built)",
+         "runtimeExecutable": "npm",
+         "runtimeArgs": ["run", "preview"],
+         "port": $PREVIEW_PORT
+       }
+     ]
+   }
+   EOF
+   echo "Created .claude/launch.json with dev=$DEV_PORT preview=$PREVIEW_PORT"
+   ```
+   If Cowork's preview panel is already open, click "Set up" to re-attach after creating the file.
+
+3. **Create `app/vite.config.ts`** with the probed ports — substitute `<DEV_PORT>` / `<PREVIEW_PORT>` with the values printed in step 1 (read from `.dev-port` / `.preview-port` if you've lost them):
    ```ts
    import { defineConfig } from 'vite';
    import react from '@vitejs/plugin-react';
@@ -449,7 +414,7 @@ Defaults are `:5173` (dev) and `:4173` (preview), but another running Vite proje
    ```
    (Path alias preserved from Step 2 — this file is the single source of truth for both port config and alias.)
 
-3. **Start the dev server and verify OUR process is actually alive** (catches the false-positive case where another project's server already answers on the port). Run as one bash block:
+4. **Start the dev server and verify OUR process is actually alive** (catches the false-positive case where another project's server already answers on the port). Run as one bash block:
    ```bash
    DEV_PORT=$(cat .dev-port)
    nohup npm run dev > .dev-server.log 2>&1 &
@@ -467,7 +432,7 @@ Defaults are `:5173` (dev) and `:4173` (preview), but another running Vite proje
    echo "Dev server PID $DEV_PID alive on :$DEV_PORT."
    ```
 
-4. **Curl gate — only run this AFTER step 3's PID check passes:**
+5. **Curl gate — only run this AFTER step 4's PID check passes:**
    ```bash
    DEV_PORT=$(cat .dev-port)
    for i in {1..20}; do
@@ -479,20 +444,20 @@ Defaults are `:5173` (dev) and `:4173` (preview), but another running Vite proje
    ```
    If `$code` isn't `200`, `cat .dev-server.log` and stop.
 
-5. **Confirm the served HTML has the React mount point:**
+6. **Confirm the served HTML has the React mount point:**
    ```bash
    DEV_PORT=$(cat .dev-port)
    curl -sS http://127.0.0.1:$DEV_PORT/ | grep -q '<div id="root"' && echo "shell OK"
    ```
 
-6. **Open the browser at the actual port:**
+7. **Open the browser at the actual port:**
    ```bash
    DEV_PORT=$(cat .dev-port)
    open "http://127.0.0.1:$DEV_PORT/"   # macOS; use xdg-open on Linux
    ```
-   Cowork's preview attaches via `.claude/launch.json`, which step 1 updated to match the chosen port.
+   Cowork attaches automatically via `.claude/launch.json` created in step 2. If not, click "Set up" in the preview panel.
 
-7. If bash can't reach the host browser, print the URL prominently. If curl reaches the port from bash but the user's browser doesn't, tell them to run `npm run dev` in their own Terminal from the repo root.
+8. If bash can't reach the host browser, print the URL prominently. If curl reaches the port from bash but the user's browser doesn't, tell them to run `npm run dev` in their own Terminal from the repo root.
 
 ## Step 7 — Retrospective on the bootstrap
 
@@ -502,7 +467,7 @@ Hello world *is* a feature. The retrospective rule applies. Write `docs/retrospe
 # Retrospective 001 — Hello World Bootstrap
 
 ## What we did
-<one paragraph: scaffold app/, root pass-through + .claude/ + dotfiles, root docs, spec-first hello world, dev server up with Cowork preview attached>
+<one paragraph: scaffold app/, root pass-through + dotfiles, root docs, spec-first hello world, dev server up>
 
 ## What worked
 - <bullet>
@@ -543,7 +508,6 @@ Hand-off message format:
 > <project-name>/
 >   CLAUDE.md  README.md  package.json
 >   .gitignore  .editorconfig  .nvmrc  .env.example
->   .claude/   settings.json  launch.json
 >   docs/      requirements/  decisions/  retrospectives/  constraints.md
 >   app/       src/  index.html  package.json  vite.config.ts  vitest.config.ts  ...
 > ```
@@ -554,7 +518,7 @@ Hand-off message format:
 > - ✅ Git: 4 commits — `chore: scaffold`, `docs: skeleton`, `feat: hello-world`, `chore(retro): 001-hello-world`
 > - 🌐 Dev server: `http://127.0.0.1:<DEV_PORT>/` (PID `<pid>`, log at `.dev-server.log`; port from `.dev-port`)
 > - 📦 Preview build: `npm run build && npm run preview` → `http://127.0.0.1:<PREVIEW_PORT>/` (port from `.preview-port`)
-> - 🤖 Cowork preview: attached via `.claude/launch.json`
+> - 🤖 Cowork preview: attached via `.claude/launch.json` (created in Step 6.2 by user terminal command)
 > - 📓 First retrospective: `docs/retrospectives/001-hello-world.md`
 >
 > The repo follows the working agreement in `CLAUDE.md`. Governance stays at the root; all app code stays under `app/`. When you describe a feature in a new session, the spec-first loop runs in `app/src/` and ends with a fresh retro that may update `CLAUDE.md`.
@@ -568,8 +532,6 @@ Also:
 - `test -f CLAUDE.md && echo "CLAUDE.md at root OK" || echo "MISSING — go back to Step 3"` — must say OK.
 - `test ! -f app/CLAUDE.md && echo "no stray CLAUDE.md inside app/ — OK"` — should NOT exist inside `app/`.
 - `test -f README.md && test -f package.json && test -f .editorconfig && test -f .nvmrc && test -f .env.example && echo "root files OK"`.
-- `test -f .claude/settings.json && test -f .claude/launch.json && echo ".claude/ OK"`.
-- `ls .claude/rules/typescript-strict.md .claude/rules/pure-modules.md .claude/rules/spec-first.md` — all resolve.
 - `grep -q '"strict": true' app/tsconfig.app.json && grep -q '"@/\*"' app/tsconfig.app.json && echo "tsconfig strict + alias OK"`.
 - `grep -q "'@': path.resolve" app/vite.config.ts && echo "vite alias OK"`.
 - `ls docs/requirements/overview.md docs/requirements/feature-001-hello-world.md docs/decisions/001-agent-structure.md docs/constraints.md docs/retrospectives/001-hello-world.md` — all resolve.
@@ -593,6 +555,8 @@ These were considered and intentionally left out to keep the bootstrap lean. Add
 
 - **Husky + lint-staged + commitlint** — pre-commit gate for lint/format/tests, plus commit-message enforcement for the Conventional Commits convention from rule 11. Add as a bundle when the team grows or Claude starts producing commits that pass locally but fail CI. (`@commitlint/cli` + `@commitlint/config-conventional` + a `commit-msg` husky hook.)
 - **GitHub Actions** (`.github/workflows/test.yml`) — runs test + lint on PR. Add when the repo gets a remote and/or contributors.
+- **`.claude/settings.json`** — permission allowlist that eliminates routine prompts for `npm run dev`, `git commit`, `curl`, etc. Add once permission prompts become friction. Contents: `Bash(npm run dev)`, `Bash(npm run test:*)`, `Bash(git commit:*)`, `Bash(curl -sS http://127.0.0.1:*)`, etc. *(Claude Code's self-modification classifier blocks writing `.claude/` paths during bootstrap — create this file manually or via your own terminal script.)*
+- **`.claude/launch.json`** — created in Step 6.2 via a user-run terminal command (not Deferred — needed for Cowork preview to use the correct probed port).
 - **`.claude/commands/`** with `/feature`, `/retro`, `/dev` — reusable slash-command wrappers for the working-agreement loop. Add once you've shipped a few features and notice the ritual repeating.
 - **Coverage thresholds** in `vitest.config.ts` — turn the spec-first discipline into a CI gate. Add after the first few features so the threshold is meaningful.
 - **CODEOWNERS, PR template, LICENSE, SECURITY.md** — needed when the repo goes public or multi-team. Skip for solo experiments.
