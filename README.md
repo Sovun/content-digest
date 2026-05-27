@@ -1,4 +1,4 @@
-# boiler-plate-app
+# boilerplate-web-app
 
 A bootstrap template for Vite + React + TypeScript projects following **agentic engineering** practices: spec-first, decisions recorded, governance separated from app code.
 
