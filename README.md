@@ -13,7 +13,7 @@ Follow the instructions in boilerplate.md to bootstrap a new project.
 Or reference it directly from GitHub:
 
 ```
-Read https://raw.githubusercontent.com/krivitsky/boilerplate-webapp/main/boilerplate.md and follow it step by step.
+Read https://raw.githubusercontent.com/RoukSonix/boilerplate-webapp/main/boilerplate.md and follow it step by step.
 ```
 
 Claude will interview you, then scaffold a fully wired project with Vite + React + TypeScript, Vitest, strict TypeScript, ESLint/Prettier, and a working spec-first loop — 4 commits, dev server live, retrospective written.

@@ -17,9 +17,87 @@ You are setting up a new project that follows **agentic engineering** practices,
 
 **Hard precondition for "done":** `CLAUDE.md` exists at the *repo root* (NOT inside `app/`). If it's missing, the bootstrap is not complete — re-run Step 3.
 
-**Flow at a glance:** interview → scaffold `app/` + root `package.json` + dotfiles + root `.gitignore` + chore commit → docs skeleton + README + docs commit → hello world spec-first inside `app/` + feat commit → dev server from root → curl confirms 200 → open browser → retrospective → STOP.
+**Flow at a glance:** preflight → interview → scaffold `app/` + root `package.json` + dotfiles + root `.gitignore` + chore commit → docs skeleton + README + docs commit → hello world spec-first inside `app/` + feat commit → dev server from root → curl confirms 200 → open browser → retrospective → STOP.
 
 **File-creation discipline:** When this prompt shows a file path followed by code-block content, Claude MUST create that file using its file-writing tools — do NOT print the content and wait for the user to create it. Diff snippets explicitly labeled "merge into existing file" are the only exception. Bash heredoc blocks in Step 2 must be executed, not displayed.
+
+## Step 0 — Preflight: verify the system has the tools this bootstrap needs
+
+Before asking the user anything, verify the required tools are present. If any **required** tool is missing or below the minimum version, **STOP**, tell the user exactly which tool is missing and how to install it on their platform, and do not proceed to Step 1.
+
+Run this single bash block from the parent directory where the new project will be created:
+
+```bash
+need_fail=0
+
+check_cmd() {
+  local name=$1 cmd=$2
+  if command -v "$cmd" >/dev/null 2>&1; then
+    echo "OK:      $name ($(command -v "$cmd"))"
+  else
+    echo "MISSING: $name (command '$cmd' not found)"
+    need_fail=1
+  fi
+}
+
+check_cmd "Node.js" node
+check_cmd "npm"     npm
+check_cmd "git"     git
+check_cmd "curl"    curl
+check_cmd "netcat"  nc
+check_cmd "sed"     sed
+
+# Node version gate (>= 22, matches .nvmrc created in Step 2)
+if command -v node >/dev/null 2>&1; then
+  node_major=$(node -p 'process.versions.node.split(".")[0]')
+  if [ "$node_major" -lt 22 ]; then
+    echo "MISSING: Node.js >= 22 (found $(node -v))"
+    need_fail=1
+  else
+    echo "OK:      Node.js version $(node -v) >= 22"
+  fi
+fi
+
+# Optional: browser opener (non-blocking)
+if command -v open >/dev/null 2>&1; then
+  echo "OK:      browser opener -> open (macOS)"
+elif command -v xdg-open >/dev/null 2>&1; then
+  echo "OK:      browser opener -> xdg-open (Linux)"
+else
+  echo "WARN:    no browser opener (open / xdg-open). Step 6 will print the URL for manual opening."
+fi
+
+if [ $need_fail -eq 1 ]; then
+  cat <<'HINTS'
+
+Bootstrap cannot proceed — install the missing tools and re-run.
+
+macOS (Homebrew):
+  Node.js 22:   brew install node@22         (or: nvm install 22 && nvm use 22)
+  git:          brew install git
+  curl:         pre-installed; brew install curl to update
+  netcat:       brew install netcat
+
+Debian/Ubuntu:
+  sudo apt install -y nodejs npm git curl netcat-openbsd
+
+Windows:
+  Use WSL2 with the Debian/Ubuntu commands above, or install Node.js from nodejs.org
+  and Git for Windows; netcat is available via 'choco install netcat'.
+HINTS
+  exit 1
+fi
+
+echo
+echo "Preflight OK — proceeding to Step 1."
+```
+
+**Not required for this bootstrap:**
+- **Python** — no bootstrap step invokes Python.
+- **Docker, databases, language runtimes other than Node.js** — not used.
+- **GitHub CLI (`gh`)** — git alone is sufficient; bootstrap does not push to a remote.
+
+If a future feature needs additional tools (Python for a script, Docker for an integration test, etc.), gate that feature behind its own preflight check in its requirements doc — don't add it here.
 
 ## Step 1 — Interview me
 
