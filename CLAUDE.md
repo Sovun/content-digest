@@ -1,8 +1,4 @@
-# CLAUDE.md
-
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
-
-## If you are Claude reading this in a new session
+# Purpose
 
 `boilerplate.md` contains your full instructions. Read it now and start at **Step 1** (interview the user). Do not write any code before completing Step 1.
 
