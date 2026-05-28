@@ -512,14 +512,14 @@ Hand-off message format:
 >   app/       src/  index.html  package.json  vite.config.ts  vitest.config.ts  ...
 > ```
 >
-> - ✅ `CLAUDE.md` at `<absolute-repo-root-path>/CLAUDE.md`
-> - ✅ Tests green (`<N> passed`)
-> - ✅ Lint clean
-> - ✅ Git: 4 commits — `chore: scaffold`, `docs: skeleton`, `feat: hello-world`, `chore(retro): 001-hello-world`
-> - 🌐 Dev server: `http://127.0.0.1:<DEV_PORT>/` (PID `<pid>`, log at `.dev-server.log`; port from `.dev-port`)
-> - 📦 Preview build: `npm run build && npm run preview` → `http://127.0.0.1:<PREVIEW_PORT>/` (port from `.preview-port`)
-> - 🤖 Cowork preview: attached via `.claude/launch.json` (created in Step 6.2 by user terminal command)
-> - 📓 First retrospective: `docs/retrospectives/001-hello-world.md`
+> - `CLAUDE.md` at `<absolute-repo-root-path>/CLAUDE.md`
+> - Tests green (`<N> passed`)
+> - Lint clean
+> - Git: 4 commits — `chore: scaffold`, `docs: skeleton`, `feat: hello-world`, `chore(retro): 001-hello-world`
+> - Dev server: `http://127.0.0.1:<DEV_PORT>/` (PID `<pid>`, log at `.dev-server.log`; port from `.dev-port`)
+> - Preview build: `npm run build && npm run preview` → `http://127.0.0.1:<PREVIEW_PORT>/` (port from `.preview-port`)
+> - Cowork preview: attached via `.claude/launch.json` (created in Step 6.2 by user terminal command)
+> - First retrospective: `docs/retrospectives/001-hello-world.md`
 >
 > The repo follows the working agreement in `CLAUDE.md`. Governance stays at the root; all app code stays under `app/`. When you describe a feature in a new session, the spec-first loop runs in `app/src/` and ends with a fresh retro that may update `CLAUDE.md`.
 

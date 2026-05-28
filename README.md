@@ -21,5 +21,3 @@ Claude will interview you, then scaffold a fully wired project with Vite + React
 ## What's in this repo
 
 - [`boilerplate.md`](./boilerplate.md) — the full bootstrap prompt (8 steps)
-- [`CLAUDE.md`](./CLAUDE.md) — context for Claude Code
-- [`AGENTS.md`](./AGENTS.md) — context for other agents (OpenAI Codex, etc.)
