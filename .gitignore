@@ -1,2 +1,13 @@
 .memsearch/
 .DS_Store
+
+# Node / Vite
+node_modules/
+dist/
+
+# Python
+.venv/
+__pycache__/
+
+# Secrets
+.env
