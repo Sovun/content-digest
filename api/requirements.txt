@@ -2,3 +2,4 @@ fastapi
 httpx
 trafilatura
 psycopg[binary]
+python-dotenv
