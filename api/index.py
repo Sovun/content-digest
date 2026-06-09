@@ -4,14 +4,16 @@ Wires hosting (health) and read access to the board (cards). Later steps add
 the ingest/digest pipeline (digest.py) behind POST /api/cards.
 """
 
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
+from pydantic import BaseModel
 
 # Works both locally (uvicorn api.index:app → `api` is a package) and on
 # Vercel (which imports the entrypoint with its own dir on sys.path).
 try:
-    from . import db
+    from . import db, digest
 except ImportError:  # pragma: no cover
     import db  # type: ignore
+    import digest  # type: ignore
 
 app = FastAPI(title="Content Digest API")
 
@@ -36,3 +38,30 @@ def health() -> dict[str, str]:
 def get_cards() -> list[dict]:
     _ensure_schema()
     return db.list_cards()
+
+
+class CreateCard(BaseModel):
+    url: str
+
+
+@app.post("/api/cards", status_code=201)
+def create_card(body: CreateCard) -> dict:
+    url = body.url.strip()
+    if not url:
+        raise HTTPException(status_code=422, detail="A URL is required.")
+
+    try:
+        d = digest.ingest(url)
+    except digest.IngestError as exc:
+        # Unextractable / failed digest → clear error, no card (per PRD).
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+    _ensure_schema()
+    return db.insert_card(
+        url=url,
+        title=d["title"],
+        summary=d["summary"],
+        key_points=d["key_points"],
+        tags=d["tags"],
+        category=d["category"],
+    )

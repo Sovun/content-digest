@@ -13,6 +13,7 @@ import os
 
 import psycopg
 from psycopg.rows import dict_row
+from psycopg.types.json import Jsonb
 
 try:
     # Load a local, gitignored .env for dev. On Vercel the real env vars are
@@ -67,3 +68,33 @@ def list_cards() -> list[dict]:
             """
         )
         return cur.fetchall()
+
+
+def insert_card(
+    url: str,
+    title: str,
+    summary: str,
+    key_points: list[str],
+    tags: list[str],
+    category: str,
+) -> dict:
+    """Insert a card and return the full row (incl. id, created_at)."""
+    with connect() as conn, conn.cursor() as cur:
+        cur.execute(
+            """
+            INSERT INTO cards (url, title, summary, key_points, tags, category)
+            VALUES (%s, %s, %s, %s, %s, %s)
+            RETURNING id, url, title, summary, key_points, tags, category, created_at
+            """,
+            (
+                url,
+                title,
+                summary,
+                Jsonb(key_points),
+                Jsonb(tags),
+                category,
+            ),
+        )
+        row = cur.fetchone()
+        conn.commit()
+        return row
