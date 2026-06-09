@@ -42,10 +42,10 @@ distilled and self-organizing rather than piling up in a read-later list.
 - **Persistence** — board and cards are stored in **Postgres**, accessed via the backend.
   See [ADR 001](../decisions/001-persistence-postgres.md). This confirms a backend is
   required (front-end-only is off the table).
-- **Text extraction** — a **lightweight self-hosted library** in the backend
-  (`@extractus/article-extractor` or Mozilla Readability + `jsdom`), no headless browser
-  or hosted API. See [ADR 002](../decisions/002-text-extraction.md). Unextractable pages
-  surface a clear error and create no card.
+- **Text extraction** — a **lightweight self-hosted Python library** in the backend
+  (`trafilatura`, or `readability-lxml` + `httpx`), no headless browser or hosted API.
+  See [ADR 002](../decisions/002-text-extraction.md). Unextractable pages surface a clear
+  error and create no card.
 - **LLM integration** — **OpenRouter** (OpenAI-compatible API) called from the backend,
   producing `{summary, keyPoints, tags, category}` as JSON; model id is config; key read
   from `OPENROUTER_API_KEY`. See [ADR 003](../decisions/003-llm-integration.md).

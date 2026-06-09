@@ -1,10 +1,10 @@
 # Content Digest — Build Plan
 
-> **Stack note:** This plan reflects the chosen MVP stack and **supersedes the stack
-> choice** in [ADR 002](decisions/002-text-extraction.md) (Node extraction → Python).
-> [ADR 001](decisions/001-persistence-postgres.md) (Postgres) and
-> [ADR 003](decisions/003-llm-integration.md) (OpenRouter) are consistent with this plan.
-> The product scope in [PRD.md](PRD.md) is unchanged.
+> **Stack note:** This plan reflects the chosen MVP stack and is consistent with all three
+> decisions: [ADR 001](decisions/001-persistence-postgres.md) (Postgres),
+> [ADR 002](decisions/002-text-extraction.md) (Python extraction), and
+> [ADR 003](decisions/003-llm-integration.md) (OpenRouter). The product scope in
+> [PRD.md](PRD.md) is unchanged.
 
 ## Stack
 
