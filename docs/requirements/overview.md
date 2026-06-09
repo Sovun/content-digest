@@ -37,9 +37,19 @@ distilled and self-organizing rather than piling up in a read-later list.
 - Mobile-native apps (web only).
 - Editing the source article text.
 
-## Open architectural questions (resolve via ADR before building)
+## Architectural decisions
 
-- **Text extraction** — browser-only fetch hits CORS limits; likely needs a small
-  backend or extraction proxy. Decide before Feature 1.
-- **LLM integration** — which model/provider for summary, points, tags, category;
-  this is a new runtime dependency and requires an ADR per the working agreement.
+- **Persistence** — board and cards are stored in **SQLite**, accessed via the backend.
+  See [ADR 001](../decisions/001-persistence-sqlite.md). This confirms a backend is
+  required (front-end-only is off the table).
+- **Text extraction** — a **lightweight self-hosted library** in the backend
+  (`@extractus/article-extractor` or Mozilla Readability + `jsdom`), no headless browser
+  or hosted API. See [ADR 002](../decisions/002-text-extraction.md). Unextractable pages
+  surface a clear error and create no card.
+- **LLM integration** — the **Claude API** via `@anthropic-ai/sdk`, model
+  `claude-opus-4-8`, with structured outputs producing `{summary, keyPoints, tags,
+  category}`; key read from `ANTHROPIC_API_KEY`. See
+  [ADR 003](../decisions/003-llm-integration.md).
+
+All architectural questions are resolved; remaining detail (schemas, prompts) is settled
+at spec time per feature.
