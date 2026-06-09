@@ -39,8 +39,8 @@ distilled and self-organizing rather than piling up in a read-later list.
 
 ## Architectural decisions
 
-- **Persistence** — board and cards are stored in **SQLite**, accessed via the backend.
-  See [ADR 001](../decisions/001-persistence-sqlite.md). This confirms a backend is
+- **Persistence** — board and cards are stored in **Postgres**, accessed via the backend.
+  See [ADR 001](../decisions/001-persistence-postgres.md). This confirms a backend is
   required (front-end-only is off the table).
 - **Text extraction** — a **lightweight self-hosted library** in the backend
   (`@extractus/article-extractor` or Mozilla Readability + `jsdom`), no headless browser

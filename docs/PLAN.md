@@ -1,10 +1,10 @@
 # Content Digest — Build Plan
 
 > **Stack note:** This plan reflects the chosen MVP stack and **supersedes the stack
-> choices** in [ADR 001](decisions/001-persistence-sqlite.md) (SQLite → Postgres),
-> [ADR 002](decisions/002-text-extraction.md) (Node extraction → Python), and
-> [ADR 003](decisions/003-llm-integration.md) (direct Claude API → OpenRouter). The
-> product scope in [PRD.md](PRD.md) is unchanged.
+> choices** in [ADR 002](decisions/002-text-extraction.md) (Node extraction → Python) and
+> [ADR 003](decisions/003-llm-integration.md) (direct Claude API → OpenRouter).
+> [ADR 001](decisions/001-persistence-postgres.md) (Postgres) is consistent with this
+> plan. The product scope in [PRD.md](PRD.md) is unchanged.
 
 ## Stack
 

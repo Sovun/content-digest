@@ -9,7 +9,7 @@ Accepted
 Content Digest's core step turns extracted article text into a short summary, key
 points, tags, and a suggested category (see [PRD](../PRD.md), Features 2–3). This needs
 an LLM, called from the backend (we already run one — see
-[ADR 001](001-persistence-sqlite.md) and [ADR 002](002-text-extraction.md)).
+[ADR 001](001-persistence-postgres.md) and [ADR 002](002-text-extraction.md)).
 
 "Use Claude Code" was considered and rejected: Claude Code is an interactive developer
 *agent* (CLI/IDE tool), not a runtime API an app embeds. The right surface is the
@@ -27,7 +27,7 @@ Call the **Claude API** from the Node backend using **`@anthropic-ai/sdk`** (Typ
 - **Auth:** the API key is read from the **`ANTHROPIC_API_KEY`** environment variable at
   runtime. It lives in a local, gitignored `.env` — never committed, never hard-coded.
 - The digest call happens server-side after extraction; the result is persisted as a card
-  in SQLite.
+  in Postgres.
 
 ## Consequences
 

@@ -8,7 +8,7 @@ Accepted
 
 Content Digest ingests an article URL and needs the readable title + body, stripped of
 nav, ads, and boilerplate, before the AI digest runs. Browser-only fetch hits CORS limits,
-and we already run a Node backend (see [ADR 001](001-persistence-sqlite.md)), so extraction
+and we already run a backend (see [ADR 001](001-persistence-postgres.md)), so extraction
 happens server-side.
 
 Options considered:
