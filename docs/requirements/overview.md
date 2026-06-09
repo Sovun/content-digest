@@ -46,10 +46,9 @@ distilled and self-organizing rather than piling up in a read-later list.
   (`@extractus/article-extractor` or Mozilla Readability + `jsdom`), no headless browser
   or hosted API. See [ADR 002](../decisions/002-text-extraction.md). Unextractable pages
   surface a clear error and create no card.
-- **LLM integration** — the **Claude API** via `@anthropic-ai/sdk`, model
-  `claude-opus-4-8`, with structured outputs producing `{summary, keyPoints, tags,
-  category}`; key read from `ANTHROPIC_API_KEY`. See
-  [ADR 003](../decisions/003-llm-integration.md).
+- **LLM integration** — **OpenRouter** (OpenAI-compatible API) called from the backend,
+  producing `{summary, keyPoints, tags, category}` as JSON; model id is config; key read
+  from `OPENROUTER_API_KEY`. See [ADR 003](../decisions/003-llm-integration.md).
 
 All architectural questions are resolved; remaining detail (schemas, prompts) is settled
 at spec time per feature.
