@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react'
 import { ApiError, createCard, listCards, updateCardCategory } from './lib/api'
 import type { Card } from './lib/api'
+import { getCookiesForUrl } from './lib/cookies'
 import UrlInput from './components/UrlInput'
+import CookieManager from './components/CookieManager'
 import Board from './components/Board'
 
 export default function App() {
@@ -21,7 +23,8 @@ export default function App() {
     setSubmitting(true)
     setError(null)
     try {
-      const card = await createCard(url)
+      // Attach the user's saved cookies for this site, if any (ADR 004).
+      const card = await createCard(url, getCookiesForUrl(url))
       setCards((prev) => [card, ...prev])
       return true
     } catch (e) {
@@ -66,6 +69,8 @@ export default function App() {
       </header>
 
       <UrlInput busy={submitting} error={error} onSubmit={handleSubmit} />
+
+      <CookieManager />
 
       <Board
         cards={cards}

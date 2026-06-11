@@ -4,7 +4,10 @@ Wires hosting (health) and read access to the board (cards). Later steps add
 the ingest/digest pipeline (digest.py) behind POST /api/cards.
 """
 
-from fastapi import FastAPI, HTTPException
+import time
+from collections import defaultdict, deque
+
+from fastapi import FastAPI, HTTPException, Request
 from pydantic import BaseModel, Field
 
 # Works both locally (uvicorn api.index:app → `api` is a package) and on
@@ -59,18 +62,61 @@ def update_category(card_id: int, body: UpdateCategory) -> dict:
     return row
 
 
+# Bounded: cookies ride along in the request, so cap them at the edge.
+MAX_COOKIES_CHARS = 8_192
+
+# Ingest is expensive (up to 60 s of function time, a billed remote-browser
+# session, an LLM call) and the endpoint is unauthenticated — throttle it.
+# In-memory, so the limit is per warm instance: a brake on accidental loops
+# and casual abuse, not real protection (ADR 004 notes the platform-level
+# follow-up).
+RATE_LIMIT_MAX_INGESTS = 10
+RATE_LIMIT_WINDOW_S = 600
+_ingest_log: dict[str, deque[float]] = defaultdict(deque)
+
+
+def _throttle_ingest(request: Request) -> None:
+    forwarded = request.headers.get("x-forwarded-for", "")
+    ip = forwarded.split(",")[0].strip() or (
+        request.client.host if request.client else "unknown"
+    )
+    now = time.monotonic()
+    log = _ingest_log[ip]
+    while log and now - log[0] > RATE_LIMIT_WINDOW_S:
+        log.popleft()
+    if len(log) >= RATE_LIMIT_MAX_INGESTS:
+        raise HTTPException(
+            status_code=429,
+            detail="Too many digest requests — try again in a few minutes.",
+        )
+    log.append(now)
+
+
 class CreateCard(BaseModel):
     url: str
+    # Optional per-site session cookies for login-gated pages (ADR 004).
+    # Used for this one fetch only — never logged, never persisted.
+    cookies: dict[str, str] | None = None
+    # The domain the user saved those cookies under (e.g. "medium.com" for an
+    # article on www.medium.com) — scopes them to that domain and its subdomains.
+    cookie_domain: str | None = Field(default=None, max_length=253)
 
 
 @app.post("/api/cards", status_code=201)
-def create_card(body: CreateCard) -> dict:
+def create_card(body: CreateCard, request: Request) -> dict:
     url = body.url.strip()
     if not url:
         raise HTTPException(status_code=422, detail="A URL is required.")
 
+    _throttle_ingest(request)
+
+    cookies = body.cookies or None
+    if cookies and sum(len(k) + len(v) for k, v in cookies.items()) > MAX_COOKIES_CHARS:
+        raise HTTPException(status_code=422, detail="Cookie data is too large (max 8 KB).")
+    cookie_domain = (body.cookie_domain or "").strip().lower().lstrip(".") or None
+
     try:
-        d = digest.ingest(url)
+        d = digest.ingest(url, cookies=cookies, cookie_domain=cookie_domain)
     except digest.IngestError as exc:
         # Unextractable / failed digest → clear error, no card (per PRD).
         raise HTTPException(status_code=422, detail=str(exc)) from exc
