@@ -33,7 +33,14 @@ export default function Card({ card, categories, onCategoryChange }: Props) {
     const name = newName.trim()
     setNaming(false)
     setNewName('')
-    if (name && name !== card.category) onCategoryChange(card.id, name)
+    if (!name) return
+    // Reuse an existing section when the name differs only by case,
+    // so "ai" doesn't create a second section next to "AI".
+    const existing = categories.find(
+      (c) => c.toLowerCase() === name.toLowerCase(),
+    )
+    const category = existing ?? name
+    if (category !== card.category) onCategoryChange(card.id, category)
   }
 
   return (
@@ -63,8 +70,8 @@ export default function Card({ card, categories, onCategoryChange }: Props) {
 
       <footer className="card__footer">
         <ul className="card__tags">
-          {card.tags.map((tag) => (
-            <li key={tag}>{tag}</li>
+          {card.tags.map((tag, i) => (
+            <li key={`${tag}-${i}`}>{tag}</li>
           ))}
         </ul>
 

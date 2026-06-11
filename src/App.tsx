@@ -17,24 +17,27 @@ export default function App() {
       .finally(() => setLoading(false))
   }, [])
 
-  async function handleSubmit(url: string) {
+  async function handleSubmit(url: string): Promise<boolean> {
     setSubmitting(true)
     setError(null)
     try {
       const card = await createCard(url)
       setCards((prev) => [card, ...prev])
+      return true
     } catch (e) {
       setError(
         e instanceof ApiError ? e.message : 'Something went wrong. Try again.',
       )
+      return false
     } finally {
       setSubmitting(false)
     }
   }
 
   async function handleCategoryChange(id: number, category: string) {
-    const previous = cards
-    // Move the card optimistically; revert if the server rejects it.
+    const previousCategory = cards.find((c) => c.id === id)?.category
+    // Move the card optimistically; revert only this card's category on
+    // failure, so concurrent updates to other cards aren't wiped out.
     setCards((prev) =>
       prev.map((c) => (c.id === id ? { ...c, category } : c)),
     )
@@ -42,7 +45,13 @@ export default function App() {
       const updated = await updateCardCategory(id, category)
       setCards((prev) => prev.map((c) => (c.id === id ? updated : c)))
     } catch {
-      setCards(previous)
+      if (previousCategory !== undefined) {
+        setCards((prev) =>
+          prev.map((c) =>
+            c.id === id ? { ...c, category: previousCategory } : c,
+          ),
+        )
+      }
       setError('Could not change the category. Try again.')
     }
   }

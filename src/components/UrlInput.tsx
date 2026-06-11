@@ -3,19 +3,20 @@ import { useState, type FormEvent } from 'react'
 interface Props {
   busy: boolean
   error: string | null
-  onSubmit: (url: string) => void
+  onSubmit: (url: string) => Promise<boolean>
 }
 
 // The single obvious action (per PRD): paste a URL, get a card.
 export default function UrlInput({ busy, error, onSubmit }: Props) {
   const [url, setUrl] = useState('')
 
-  function handleSubmit(e: FormEvent) {
+  async function handleSubmit(e: FormEvent) {
     e.preventDefault()
     const trimmed = url.trim()
     if (!trimmed || busy) return
-    onSubmit(trimmed)
-    setUrl('')
+    // Clear only on success so a failed URL can be retried without re-pasting.
+    const ok = await onSubmit(trimmed)
+    if (ok) setUrl('')
   }
 
   return (
