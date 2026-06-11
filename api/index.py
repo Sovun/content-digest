@@ -40,6 +40,23 @@ def get_cards() -> list[dict]:
     return db.list_cards()
 
 
+class UpdateCategory(BaseModel):
+    category: str
+
+
+@app.patch("/api/cards/{card_id}")
+def update_category(card_id: int, body: UpdateCategory) -> dict:
+    category = body.category.strip()
+    if not category:
+        raise HTTPException(status_code=422, detail="A category is required.")
+
+    _ensure_schema()
+    row = db.update_card_category(card_id, category)
+    if row is None:
+        raise HTTPException(status_code=404, detail="Card not found.")
+    return row
+
+
 class CreateCard(BaseModel):
     url: str
 
