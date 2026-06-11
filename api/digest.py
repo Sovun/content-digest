@@ -9,6 +9,7 @@ route turns that into a clear error and creates no card (per the PRD).
 
 import json
 import os
+from urllib.parse import urlparse
 
 import httpx
 import trafilatura
@@ -37,6 +38,11 @@ class IngestError(Exception):
 
 
 def _fetch_html(url: str) -> str:
+    # Only http(s) gets fetched or stored — stored URLs become clickable
+    # links on the board, so other schemes (javascript:, file:, …) are out.
+    if urlparse(url).scheme not in ("http", "https"):
+        raise IngestError("Only http(s) URLs are supported.")
+
     try:
         resp = httpx.get(
             url,

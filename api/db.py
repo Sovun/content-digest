@@ -70,6 +70,21 @@ def list_cards() -> list[dict]:
         return cur.fetchall()
 
 
+def update_card_category(card_id: int, category: str) -> dict | None:
+    """Set a card's category and return the updated row, or None if not found."""
+    with connect() as conn, conn.cursor() as cur:
+        cur.execute(
+            """
+            UPDATE cards SET category = %s WHERE id = %s
+            RETURNING id, url, title, summary, key_points, tags, category, created_at
+            """,
+            (category, card_id),
+        )
+        row = cur.fetchone()
+        conn.commit()
+        return row
+
+
 def insert_card(
     url: str,
     title: str,

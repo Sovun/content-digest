@@ -1,23 +1,77 @@
 import { useEffect, useState } from 'react'
+import { ApiError, createCard, listCards, updateCardCategory } from './lib/api'
+import type { Card } from './lib/api'
+import UrlInput from './components/UrlInput'
+import Board from './components/Board'
 
-// Step 1 placeholder: confirm the frontend can reach the FastAPI /api/health
-// endpoint through the dev proxy (and Vercel routing in production).
 export default function App() {
-  const [health, setHealth] = useState<string>('checking…')
+  const [cards, setCards] = useState<Card[]>([])
+  const [loading, setLoading] = useState(true)
+  const [submitting, setSubmitting] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    fetch('/api/health')
-      .then((r) => r.json())
-      .then((d) => setHealth(d.status ?? 'unknown'))
-      .catch(() => setHealth('unreachable'))
+    listCards()
+      .then(setCards)
+      .catch(() => setError('Could not load the board. Is the API running?'))
+      .finally(() => setLoading(false))
   }, [])
 
+  async function handleSubmit(url: string): Promise<boolean> {
+    setSubmitting(true)
+    setError(null)
+    try {
+      const card = await createCard(url)
+      setCards((prev) => [card, ...prev])
+      return true
+    } catch (e) {
+      setError(
+        e instanceof ApiError ? e.message : 'Something went wrong. Try again.',
+      )
+      return false
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  async function handleCategoryChange(id: number, category: string) {
+    const previousCategory = cards.find((c) => c.id === id)?.category
+    // Move the card optimistically; revert only this card's category on
+    // failure, so concurrent updates to other cards aren't wiped out.
+    setCards((prev) =>
+      prev.map((c) => (c.id === id ? { ...c, category } : c)),
+    )
+    try {
+      const updated = await updateCardCategory(id, category)
+      setCards((prev) => prev.map((c) => (c.id === id ? updated : c)))
+    } catch {
+      if (previousCategory !== undefined) {
+        setCards((prev) =>
+          prev.map((c) =>
+            c.id === id ? { ...c, category: previousCategory } : c,
+          ),
+        )
+      }
+      setError('Could not change the category. Try again.')
+    }
+  }
+
   return (
-    <main>
-      <h1>Content Digest</h1>
-      <p>
-        API health: <strong>{health}</strong>
-      </p>
+    <main className="app">
+      <header className="masthead">
+        <h1 className="masthead__title">Content Digest</h1>
+        <p className="masthead__tagline">
+          Paste a link. Read the digest. The board files it for you.
+        </p>
+      </header>
+
+      <UrlInput busy={submitting} error={error} onSubmit={handleSubmit} />
+
+      <Board
+        cards={cards}
+        loading={loading}
+        onCategoryChange={handleCategoryChange}
+      />
     </main>
   )
 }

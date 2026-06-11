@@ -5,7 +5,7 @@ the ingest/digest pipeline (digest.py) behind POST /api/cards.
 """
 
 from fastapi import FastAPI, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 # Works both locally (uvicorn api.index:app → `api` is a package) and on
 # Vercel (which imports the entrypoint with its own dir on sys.path).
@@ -38,6 +38,25 @@ def health() -> dict[str, str]:
 def get_cards() -> list[dict]:
     _ensure_schema()
     return db.list_cards()
+
+
+class UpdateCategory(BaseModel):
+    # Bounded: the category renders as a section heading, so reject
+    # arbitrarily long strings at the edge.
+    category: str = Field(min_length=1, max_length=100)
+
+
+@app.patch("/api/cards/{card_id}")
+def update_category(card_id: int, body: UpdateCategory) -> dict:
+    category = body.category.strip()
+    if not category:
+        raise HTTPException(status_code=422, detail="A category is required.")
+
+    _ensure_schema()
+    row = db.update_card_category(card_id, category)
+    if row is None:
+        raise HTTPException(status_code=404, detail="Card not found.")
+    return row
 
 
 class CreateCard(BaseModel):

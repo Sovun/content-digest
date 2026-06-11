@@ -4,6 +4,7 @@
 # Node / Vite
 node_modules/
 dist/
+*.tsbuildinfo
 
 # Python
 .venv/
