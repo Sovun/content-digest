@@ -1,5 +1,7 @@
 // Typed fetch wrappers around the FastAPI backend (/api/*).
 
+import type { CookieMatch } from './cookies'
+
 export interface Card {
   id: number
   url: string
@@ -31,13 +33,21 @@ export async function listCards(): Promise<Card[]> {
 
 export async function createCard(
   url: string,
-  cookies?: Record<string, string>,
+  cookieMatch?: CookieMatch,
 ): Promise<Card> {
   return parseOrThrow<Card>(
     await fetch('/api/cards', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(cookies ? { url, cookies } : { url }),
+      body: JSON.stringify(
+        cookieMatch
+          ? {
+              url,
+              cookies: cookieMatch.cookies,
+              cookie_domain: cookieMatch.domain,
+            }
+          : { url },
+      ),
     }),
   )
 }

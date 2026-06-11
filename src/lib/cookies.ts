@@ -27,7 +27,10 @@ export function parseCookieInput(raw: string): Record<string, string> {
   const pairs: Record<string, string> = {}
   const body = raw.trim().replace(/^cookie:\s*/i, '')
   for (const line of body.split('\n')) {
-    const l = line.trim()
+    // cookies.txt exports mark HttpOnly cookies with a "#HttpOnly_" prefix on
+    // the domain field — those are real cookies (often the session ones), not
+    // comments.
+    const l = line.trim().replace(/^#HttpOnly_/i, '')
     if (!l || l.startsWith('#')) continue
     const fields = l.split('\t')
     if (fields.length >= 7) {
@@ -75,10 +78,15 @@ export function listCookieDomains(): string[] {
     .sort()
 }
 
+export interface CookieMatch {
+  /** The storage domain the cookies were saved under (e.g. "medium.com") —
+   * the server scopes them to this domain and its subdomains. */
+  domain: string
+  cookies: Record<string, string>
+}
+
 /** Cookies saved for the URL's host (or a parent domain), if any. */
-export function getCookiesForUrl(
-  url: string,
-): Record<string, string> | undefined {
+export function getCookiesForUrl(url: string): CookieMatch | undefined {
   try {
     const host = new URL(url).hostname.toLowerCase()
     // Most specific match wins: prefer "sub.medium.com" over "medium.com".
@@ -87,7 +95,9 @@ export function getCookiesForUrl(
       .sort((a, b) => b.length - a.length)
     for (const domain of matches) {
       const raw = localStorage.getItem(STORAGE_PREFIX + domain)
-      if (raw) return JSON.parse(raw) as Record<string, string>
+      if (raw) {
+        return { domain, cookies: JSON.parse(raw) as Record<string, string> }
+      }
     }
   } catch {
     // Malformed URL or corrupted storage — behave as if no cookies exist.

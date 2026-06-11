@@ -11,8 +11,11 @@ Any failure along the way raises IngestError with a user-facing message; the
 route turns that into a clear error and creates no card (per the PRD).
 """
 
+import ipaddress
 import json
 import os
+import socket
+import time
 from urllib.parse import urlparse
 
 import httpx
@@ -20,6 +23,17 @@ import trafilatura
 
 # Cap extracted text fed to the model to keep token cost/latency bounded.
 MAX_TEXT_CHARS = 12_000
+
+# The whole pipeline must finish inside the function's maxDuration: 60
+# (vercel.json), or the platform kills it with an opaque 504 instead of a
+# clean IngestError. Budget slightly under that and give the LLM call
+# whatever time the fetch/extract steps left over.
+PIPELINE_BUDGET_S = 55.0
+LLM_TIMEOUT_S = 45.0
+# Below this there's no point even starting the LLM call.
+MIN_LLM_BUDGET_S = 5.0
+
+MAX_REDIRECTS = 10
 
 # Remote browser (Browserless/Browserbase CDP websocket) for deployments that
 # can't run Chromium in-process, e.g. Vercel functions (ADR 004). When unset,
@@ -33,7 +47,10 @@ BROWSER_NAV_TIMEOUT_MS = 20_000
 BROWSER_SETTLE_POLLS = 5
 BROWSER_SETTLE_POLL_MS = 2_000
 
-# Anti-bot interstitials extract as "text" — never card-ify them.
+# Anti-bot interstitials extract as "text" — never card-ify them. Real
+# interstitials are a few hundred chars; past this size it's an article that
+# merely *mentions* these phrases (e.g. a post about Cloudflare).
+_CHALLENGE_MAX_CHARS = 1_500
 _CHALLENGE_MARKERS = (
     "security verification",
     "verifying you are not a bot",
@@ -75,26 +92,69 @@ def _sanitize_cookie(value: str) -> str:
     return value.translate(_COOKIE_BANNED)
 
 
-def _fetch_html(url: str, cookies: dict[str, str] | None = None) -> str:
+def _assert_public_http_url(url: str) -> str:
+    """Validate scheme and that the host resolves to public addresses only.
+
+    Fetched content becomes a card the requester can read, so internal
+    endpoints (localhost, cloud metadata, private ranges) must never be
+    fetchable — classic SSRF. Returns the hostname.
+    """
     # Only http(s) gets fetched or stored — stored URLs become clickable
     # links on the board, so other schemes (javascript:, file:, …) are out.
-    if urlparse(url).scheme not in ("http", "https"):
+    parsed = urlparse(url)
+    if parsed.scheme not in ("http", "https"):
         raise IngestError("Only http(s) URLs are supported.")
-
-    headers = {"User-Agent": "ContentDigest/0.1 (+https://github.com/)"}
-    if cookies:
-        headers["Cookie"] = "; ".join(
-            f"{_sanitize_cookie(k)}={_sanitize_cookie(v)}"
-            for k, v in cookies.items()
-        )
-
+    host = parsed.hostname or ""
+    if not host:
+        raise IngestError("The URL has no host.")
     try:
-        resp = httpx.get(
-            url,
-            follow_redirects=True,
-            timeout=15.0,
-            headers=headers,
-        )
+        infos = socket.getaddrinfo(host, None)
+    except socket.gaierror as exc:
+        raise IngestError("Could not fetch the URL.") from exc
+    for info in infos:
+        if not ipaddress.ip_address(info[4][0]).is_global:
+            raise IngestError(
+                "URLs pointing to private or internal addresses "
+                "are not supported."
+            )
+    return host
+
+
+def _host_in_domain(host: str, domain: str) -> bool:
+    return host == domain or host.endswith("." + domain)
+
+
+def _fetch_html(
+    url: str,
+    cookies: dict[str, str] | None = None,
+    cookie_domain: str | None = None,
+) -> str:
+    headers = {"User-Agent": "ContentDigest/0.1 (+https://github.com/)"}
+    cookie_header = "; ".join(
+        f"{_sanitize_cookie(k)}={_sanitize_cookie(v)}"
+        for k, v in (cookies or {}).items()
+    )
+    if cookies and not cookie_domain:
+        cookie_domain = urlparse(url).hostname or ""
+
+    # Follow redirects by hand: each hop is re-checked against private
+    # addresses, and the Cookie header is attached only while the hop stays
+    # on the cookie's domain — httpx itself strips a manually set Cookie
+    # header on every redirect, and auto-following would skip both checks.
+    try:
+        with httpx.Client(follow_redirects=False, timeout=15.0) as client:
+            for _ in range(MAX_REDIRECTS):
+                host = _assert_public_http_url(url)
+                hop_headers = dict(headers)
+                if cookie_header and _host_in_domain(host, cookie_domain or ""):
+                    hop_headers["Cookie"] = cookie_header
+                resp = client.get(url, headers=hop_headers)
+                if not resp.has_redirect_location:
+                    break
+                assert resp.next_request is not None
+                url = str(resp.next_request.url)
+            else:
+                raise IngestError("The URL redirected too many times.")
         resp.raise_for_status()
     except httpx.HTTPStatusError as exc:
         status = exc.response.status_code
@@ -113,7 +173,10 @@ def _fetch_html(url: str, cookies: dict[str, str] | None = None) -> str:
 
 
 def _fetch_html_browser(
-    url: str, cookies: dict[str, str] | None, reason: str
+    url: str,
+    cookies: dict[str, str] | None,
+    reason: str,
+    cookie_domain: str | None = None,
 ) -> str:
     """Render the page in headless Chromium and return its HTML (ADR 004).
 
@@ -121,9 +184,9 @@ def _fetch_html_browser(
     enough; it prefixes any error so the user sees the whole story.
     """
     # _fetch_html guards this too, but page.goto would happily open file://
-    # and friends — never let a non-web URL reach the browser.
-    if urlparse(url).scheme not in ("http", "https"):
-        raise IngestError("Only http(s) URLs are supported.")
+    # and friends — never let a non-web URL (or an internal host) reach the
+    # browser. The final landing URL is re-checked after navigation.
+    _assert_public_http_url(url)
 
     try:
         from playwright.sync_api import (
@@ -159,13 +222,15 @@ def _fetch_html_browser(
                     browser = pw.chromium.launch(headless=True)
             context = browser.new_context()
             if cookies:
-                hostname = urlparse(url).hostname or ""
+                # Leading dot = subdomain matching, so cookies saved for
+                # "medium.com" also reach api.medium.com XHR the page makes.
+                domain = cookie_domain or urlparse(url).hostname or ""
                 context.add_cookies(
                     [
                         {
                             "name": _sanitize_cookie(k),
                             "value": _sanitize_cookie(v),
-                            "domain": hostname,
+                            "domain": "." + domain.lstrip("."),
                             "path": "/",
                         }
                         for k, v in cookies.items()
@@ -184,6 +249,9 @@ def _fetch_html_browser(
             # here is genuine (e.g. a 404 page) — don't card-ify it.
             if resp is not None and resp.status >= 400:
                 raise IngestError(f"The page returned HTTP {resp.status}.")
+            # Redirects (HTTP or JS) may have moved the page — never extract
+            # content the browser fetched from a private/internal address.
+            _assert_public_http_url(page.url)
             # Let client-side rendering / bot checks settle into
             # readable article text before giving up on the page.
             html = page.content()
@@ -208,6 +276,8 @@ def _fetch_html_browser(
 
 def _looks_like_challenge(text: str) -> bool:
     """True if extracted "text" is an anti-bot interstitial, not an article."""
+    if len(text) > _CHALLENGE_MAX_CHARS:
+        return False
     lowered = text.lower()
     return any(marker in lowered for marker in _CHALLENGE_MARKERS)
 
@@ -220,7 +290,11 @@ def _extract_text(html: str) -> str | None:
     return text.strip()[:MAX_TEXT_CHARS]
 
 
-def extract(url: str, cookies: dict[str, str] | None = None) -> tuple[str, str]:
+def extract(
+    url: str,
+    cookies: dict[str, str] | None = None,
+    cookie_domain: str | None = None,
+) -> tuple[str, str]:
     """Fetch and extract (title, body). Raises IngestError if unextractable.
 
     Tries a plain httpx fetch first; if the site blocks it (4xx) or the page
@@ -230,7 +304,7 @@ def extract(url: str, cookies: dict[str, str] | None = None) -> tuple[str, str]:
     text: str | None = None
     reason = None
     try:
-        html = _fetch_html(url, cookies)
+        html = _fetch_html(url, cookies, cookie_domain)
         text = _extract_text(html)
         if text is None:
             reason = (
@@ -241,7 +315,7 @@ def extract(url: str, cookies: dict[str, str] | None = None) -> tuple[str, str]:
         reason = str(exc)
 
     if text is None:
-        html = _fetch_html_browser(url, cookies, reason or "")
+        html = _fetch_html_browser(url, cookies, reason or "", cookie_domain)
         text = _extract_text(html)
         if text is None:
             raise IngestError(
@@ -255,7 +329,7 @@ def extract(url: str, cookies: dict[str, str] | None = None) -> tuple[str, str]:
     return title, text
 
 
-def digest(title: str, text: str) -> dict:
+def digest(title: str, text: str, timeout: float = LLM_TIMEOUT_S) -> dict:
     """Call OpenRouter for a structured digest. Raises IngestError on failure."""
     api_key = os.environ.get("OPENROUTER_API_KEY")
     if not api_key:
@@ -279,7 +353,7 @@ def digest(title: str, text: str) -> dict:
             OPENROUTER_URL,
             headers={"Authorization": f"Bearer {api_key}"},
             json=payload,
-            timeout=60.0,
+            timeout=timeout,
         )
         resp.raise_for_status()
         content = resp.json()["choices"][0]["message"]["content"]
@@ -322,13 +396,26 @@ def _parse_digest(content: str) -> dict:
     }
 
 
-def ingest(url: str, cookies: dict[str, str] | None = None) -> dict:
+def ingest(
+    url: str,
+    cookies: dict[str, str] | None = None,
+    cookie_domain: str | None = None,
+) -> dict:
     """Full pipeline: extract then digest. Returns fields ready to persist.
 
     `cookies` are user-supplied per-site session cookies (ADR 004): used only
-    for this fetch, never logged, never persisted.
+    for this fetch, never logged, never persisted. `cookie_domain` is the
+    domain the user saved them under — they apply to its subdomains too.
     """
-    title, text = extract(url, cookies)
-    result = digest(title, text)
+    deadline = time.monotonic() + PIPELINE_BUDGET_S
+    title, text = extract(url, cookies, cookie_domain)
+    # A slow fetch (browser fallback) eats into the LLM call's share; fail
+    # with our own message rather than letting the platform kill the function.
+    remaining = deadline - time.monotonic()
+    if remaining < MIN_LLM_BUDGET_S:
+        raise IngestError(
+            "The page took too long to fetch — no time left for the digest."
+        )
+    result = digest(title, text, timeout=min(LLM_TIMEOUT_S, remaining))
     result["title"] = title
     return result

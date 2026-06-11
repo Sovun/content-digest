@@ -53,13 +53,32 @@ Options considered (from the issue):
   selected by env var.
 - **Cookies:** the frontend stores per-site cookies the user pastes (Cookie
   header value or cookies.txt) in **localStorage only**, keyed by domain, and
-  sends them in the `POST /api/cards` body when the article's host matches.
-  The backend injects them into that single fetch (httpx `Cookie` header and
-  the Playwright context), capped at 8 KB, **never logged and never
-  persisted** — there is no cookies column, and they are not forwarded to
-  `db.insert_card`.
+  sends them — with that domain — in the `POST /api/cards` body when the
+  article's host matches. The backend scopes them to that domain and its
+  subdomains for that single fetch: the httpx path follows redirects manually
+  and attaches the `Cookie` header only while the hop stays on the domain
+  (httpx strips a manually set header on every redirect, which would
+  otherwise silently drop the cookies before the article loads); the
+  Playwright path sets them as `.domain` context cookies. Capped at 8 KB,
+  **never logged and never persisted** — there is no cookies column, and
+  they are not forwarded to `db.insert_card`.
+- **SSRF guard:** before any fetch, the host must resolve to public addresses
+  only (`ip.is_global`) — private ranges, loopback, link-local, and cloud
+  metadata endpoints are rejected. The httpx path re-checks every redirect
+  hop; the browser path checks the initial URL and the final landing URL
+  before extracting content. Residual: DNS rebinding between check and fetch,
+  and in-page subresource requests, are not intercepted — accepted, since
+  only main-frame text reaches a card.
+- **Throttling:** `POST /api/cards` is unauthenticated but expensive (function
+  time, a billed browser session, an LLM call), so the API keeps a per-IP
+  in-memory sliding window (10 ingests / 10 min). Per warm instance only — a
+  brake on loops and casual abuse; platform-level rate limiting (e.g. Vercel
+  WAF) is the real defense and a follow-up below.
 - `vercel.json` sets `maxDuration: 60` for the function: ~20 s browser
   navigation + extraction + the OpenRouter call must fit in one invocation.
+  The pipeline tracks a 55 s budget and gives the LLM call the remaining
+  time, so a slow fallback fetch fails with a clear error instead of the
+  platform killing the function mid-call.
 
 ## Consequences
 
@@ -85,3 +104,5 @@ Options considered (from the issue):
   thin raw-CDP websocket client behind the same function signature.
 - Consider surfacing *which* path produced a card (plain vs browser) for
   debugging ingest quality.
+- Add platform-level rate limiting (Vercel WAF / firewall rules) for
+  `POST /api/cards`; the in-process throttle is per warm instance only.
