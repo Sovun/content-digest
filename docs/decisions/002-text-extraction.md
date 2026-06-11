@@ -2,7 +2,10 @@
 
 ## Status
 
-Accepted
+Accepted — the "no headless browser" constraint is superseded by
+[ADR 004](004-browser-rendering-fallback.md), which adds a Playwright
+fallback behind the same extraction interface (the migration path named
+below). The trafilatura-first pipeline is unchanged.
 
 ## Context
 

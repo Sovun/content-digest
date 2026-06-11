@@ -38,6 +38,7 @@ export default function UrlInput({ busy, error, onSubmit }: Props) {
       {busy && (
         <p className="url-input__status" role="status">
           Fetching the article, extracting text, writing the digest…
+          stubborn pages get a full browser and take a little longer.
         </p>
       )}
       {error && (

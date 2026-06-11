@@ -29,12 +29,15 @@ export async function listCards(): Promise<Card[]> {
   return parseOrThrow<Card[]>(await fetch('/api/cards'))
 }
 
-export async function createCard(url: string): Promise<Card> {
+export async function createCard(
+  url: string,
+  cookies?: Record<string, string>,
+): Promise<Card> {
   return parseOrThrow<Card>(
     await fetch('/api/cards', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ url }),
+      body: JSON.stringify(cookies ? { url, cookies } : { url }),
     }),
   )
 }

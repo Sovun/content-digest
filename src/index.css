@@ -141,6 +141,117 @@ body {
   }
 }
 
+/* ---------- Cookie manager ---------- */
+
+.cookie-mgr {
+  max-width: 640px;
+  margin: -2rem auto 3rem;
+  font-size: 0.9rem;
+}
+
+.cookie-mgr__toggle {
+  cursor: pointer;
+  color: var(--ink-soft);
+  text-align: center;
+  user-select: none;
+}
+
+.cookie-mgr__hint {
+  font-style: italic;
+}
+
+.cookie-mgr__body {
+  margin-top: 0.75rem;
+  border: 1px solid var(--rule);
+  background: var(--paper-raised);
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.cookie-mgr__note {
+  margin: 0;
+  color: var(--ink-soft);
+  font-size: 0.85rem;
+}
+
+.cookie-mgr__form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.cookie-mgr__form input,
+.cookie-mgr__form textarea {
+  font: inherit;
+  font-size: 0.88rem;
+  color: var(--ink);
+  background: var(--paper);
+  border: 1px solid var(--rule);
+  padding: 0.45rem 0.6rem;
+  resize: vertical;
+}
+
+.cookie-mgr__form input:focus,
+.cookie-mgr__form textarea:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.cookie-mgr__form button {
+  align-self: flex-start;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 0.88rem;
+  color: var(--paper);
+  background: var(--ink);
+  border: none;
+  padding: 0.4rem 1rem;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.cookie-mgr__form button:hover {
+  background: var(--accent);
+}
+
+.cookie-mgr__error {
+  margin: 0;
+  color: var(--accent);
+  font-weight: 600;
+  font-size: 0.85rem;
+}
+
+.cookie-mgr__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.cookie-mgr__list li {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.8rem;
+  background: var(--accent-soft);
+  padding: 0.2rem 0.6rem;
+  border-radius: 999px;
+}
+
+.cookie-mgr__list button {
+  border: none;
+  background: none;
+  color: var(--accent);
+  font: inherit;
+  font-size: 0.75rem;
+  cursor: pointer;
+  padding: 0;
+}
+
 /* ---------- Board & sections ---------- */
 
 .board__empty {

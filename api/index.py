@@ -59,8 +59,15 @@ def update_category(card_id: int, body: UpdateCategory) -> dict:
     return row
 
 
+# Bounded: cookies ride along in the request, so cap them at the edge.
+MAX_COOKIES_CHARS = 8_192
+
+
 class CreateCard(BaseModel):
     url: str
+    # Optional per-site session cookies for login-gated pages (ADR 004).
+    # Used for this one fetch only — never logged, never persisted.
+    cookies: dict[str, str] | None = None
 
 
 @app.post("/api/cards", status_code=201)
@@ -69,8 +76,12 @@ def create_card(body: CreateCard) -> dict:
     if not url:
         raise HTTPException(status_code=422, detail="A URL is required.")
 
+    cookies = body.cookies or None
+    if cookies and sum(len(k) + len(v) for k, v in cookies.items()) > MAX_COOKIES_CHARS:
+        raise HTTPException(status_code=422, detail="Cookie data is too large (max 8 KB).")
+
     try:
-        d = digest.ingest(url)
+        d = digest.ingest(url, cookies=cookies)
     except digest.IngestError as exc:
         # Unextractable / failed digest → clear error, no card (per PRD).
         raise HTTPException(status_code=422, detail=str(exc)) from exc

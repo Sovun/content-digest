@@ -3,3 +3,4 @@ httpx
 trafilatura
 psycopg[binary]
 python-dotenv
+playwright
